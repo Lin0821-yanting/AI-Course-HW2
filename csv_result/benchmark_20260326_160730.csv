@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,FPS,P50_ms,P95_ms,P99_ms,gpu_memory_mb
+20260326_160730,tensorrt_fp16,7W,500,60.05,47.10,16.05,16.48,20.97,4373.75

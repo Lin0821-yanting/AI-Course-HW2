@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,Detection_FPS,P50_ms,P95_ms,P99_ms,Mean_ms,Peak_Memory_MB
+20260326_150355,cpu,MAXN_SUPER,500,60.06,15.26,64.90,72.05,78.37,65.52,419.00

@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,FPS,P50_ms,P95_ms,P99_ms,gpu_memory_mb
+20260326_160845,cpu,7W,500,60.05,14.96,62.83,68.99,74.86,3982.43

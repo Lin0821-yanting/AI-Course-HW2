@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,Detection_FPS,P50_ms,P95_ms,P99_ms,Mean_ms,Peak_Memory_MB
+20260326_151420,tensorrt_fp16,7W,500,60.03,62.68,15.94,16.20,16.32,15.95,738.48

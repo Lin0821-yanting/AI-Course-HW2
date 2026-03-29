@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,P50 (ms),P95 (ms),P99 (ms),Mean (ms)
+20260325_203152,cuda,Unknown,500,21.60,28.94,37.22,22.99

@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,Detection_FPS,P50_ms,P95_ms,P99_ms,Mean_ms,Peak_Memory_MB
+20260326_150259,tensorrt_fp16,MAXN_SUPER,500,60.06,61.68,16.11,17.13,17.61,16.21,717.84

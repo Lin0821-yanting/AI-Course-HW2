@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,P50 (ms),P95 (ms),P99 (ms),Mean (ms),Peak Memory (MB)
+20260326_143737,cuda,MAXN_SUPER,500,21.43,22.86,23.50,21.67,768.35

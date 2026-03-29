@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,Detection_FPS,P50_ms,P95_ms,P99_ms,Mean_ms,Peak_Memory_MB
+20260326_151247,cuda,7W,500,60.04,48.12,20.76,21.04,21.84,20.78,799.93

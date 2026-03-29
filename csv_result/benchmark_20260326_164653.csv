@@ -1,0 +1,2 @@
+Timestamp,Backend,Power Mode,Total Runs,Camera_FPS,FPS,P50_ms,P95_ms,P99_ms,gpu_memory_mb
+20260326_164653,cuda,25W,500,60.11,31.08,27.13,27.78,29.56,2805.52

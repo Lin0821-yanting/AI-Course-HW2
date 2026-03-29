@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Yanting Lin
+# Tatung University — I4210 AI實務專題
+
+import cv2
+import numpy as np
+import time
+import argparse
+from camera import Camera
+from detector import Detector
+from mjpeg_server import MJPEGServer
+
+class MotionGatedDetector:
+    """動態閘控偵測系統。"""
+
+    def __init__(self, args):
+        self.args = args
+        self.camera = Camera(width=1280, height=720, fps=60)
+        self.detector = Detector(args.pb, args.pbtxt, backend=args.backend, conf_threshold=0.3)
+        self.server = MJPEGServer(port=8080)
+        
+        # MOG2 設定 [cite: 172, 185]
+        self.bg_sub = cv2.createBackgroundSubtractorMOG2(
+            history=args.learn_frames, varThreshold=50, detectShadows=True
+        )
+        self.erode_kernel = np.ones((3, 3), np.uint8)
+        self.dilate_kernel = np.ones((7, 7), np.uint8)
+
+        # 統計數據
+        self.inference_latencies = []
+        self.inference_count = 0
+        self.missed_detections = 0
+        self.false_triggers = 0
+        self.last_results = []
+
+    def _cleanup_mask(self, mask):
+        """形態學清理：侵蝕 3x3 移除雜訊，膨脹 7x7 填補空隙 [cite: 57, 82, 177]。"""
+        mask = cv2.erode(mask, self.erode_kernel, iterations=1)
+        mask = cv2.dilate(mask, self.dilate_kernel, iterations=1)
+        return mask
+
+    def run(self):
+        """執行偵測流程 [cite: 54, 82]。"""
+        self.server.start()
+        print(f"Learning background ({self.args.learn_frames} frames)... keep still.") 
+
+        total_frames = self.args.learn_frames + self.args.detect_frames
+        
+        for i in range(total_frames):
+            frame = self.camera.read()
+            if frame is None: break
+            
+            h, w = frame.shape[:2]
+            is_learning = i < self.args.learn_frames
+            
+            # Phase 1 & 2: MOG2 更新與處理 [cite: 55, 57]
+            mask = self.bg_sub.apply(frame)
+            
+            if is_learning:
+                cv2.putText(frame, "LEARNING BACKGROUND...", (10, 30), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                self._stream_frame(frame)
+                continue
+
+            # Detection Phase Logic
+            cleaned_mask = self._cleanup_mask(mask)
+            contours, _ = cv2.findContours(cleaned_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
+            
+            # Motion Decision [cite: 58]
+            motion_gate = any(cv2.contourArea(c) > self.args.min_area for c in contours)
+            
+            run_ssd = motion_gate or self.args.evaluate
+            results = []
+            
+            if run_ssd:
+                # 僅計時 net.forward() [cite: 29]
+                blob = self.detector.preprocess(frame)
+                t0 = time.perf_counter()
+                raw_dets = self.detector.forward(blob)
+                self.inference_latencies.append((time.perf_counter() - t0) * 1000)
+                results = self.detector.postprocessing(raw_dets, w, h)
+                self.inference_count += 1
+                self.last_results = results
+            else:
+                results = self.last_results # 重用舊結果 [cite: 58, 83]
+
+            # Evaluation Mode Metrics [cite: 74, 75, 84]
+            if self.args.evaluate:
+                object_present = any(d['confidence'] > 0.5 for d in results)
+                if not motion_gate and object_present:
+                    self.missed_detections += 1
+                if motion_gate and not object_present:
+                    self.false_triggers += 1
+
+            self._visualize_and_stream(frame, results, contours, motion_gate)
+
+        self._print_summary(total_frames)
+        self.camera.release()
+
+    def _visualize_and_stream(self, frame, results, contours, gate):
+        """繪製視覺化結果並推播至串流 [cite: 58, 84]。"""
+        # 繪製動態輪廓
+        for c in contours:
+            if cv2.contourArea(c) > self.args.min_area:
+                x, y, w, h = cv2.boundingRect(c)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 1)
+
+        # 繪製偵測框
+        for det in results:
+            x, y, w, h = det['bbox']
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # 狀態 Overlay
+        status = "RUN" if gate else "SKIP"
+        color = (0, 255, 0) if gate else (0, 0, 255)
+        cv2.putText(frame, f"GATE: {status}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+        
+        self._stream_frame(frame)
+
+    def _stream_frame(self, frame):
+        """JPEG 編碼並推播。"""
+        _, buf = cv2.imencode('.jpg', frame)
+        self.server.set_frame(buf.tobytes())
+
+    def _print_summary(self, total):
+        """輸出最終統計報告 [cite: 63, 77, 84]。"""
+        skip_rate = (1 - self.inference_count / self.args.detect_frames) * 100
+        p50 = np.percentile(self.inference_latencies, 50) if self.inference_latencies else 0
+        p95 = np.percentile(self.inference_latencies, 95) if self.inference_latencies else 0
+        p99 = np.percentile(self.inference_latencies, 99) if self.inference_latencies else 0
+
+        print("\n--- Motion-Gated Detection Summary ---")
+        print(f"Learn frames:      {self.args.learn_frames}")
+        print(f"Detect frames:     {self.args.detect_frames}")
+        print(f"Total frames:      {total}")
+        print(f"Inference calls:   {self.inference_count}")
+        print(f"Skip rate:         {skip_rate:.1f}%")
+        print(f"Latency (ms):      p50={p50:.2f}, p95={p95:.2f}, p99={p99:.2f}")
+        
+        if self.args.evaluate:
+            print(f"Missed detections: {self.missed_detections}")
+            print(f"False triggers:    {self.false_triggers}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--backend', choices=['cpu', 'cuda', 'tensorrt_fp16'], default='cuda')
+    parser.add_argument('--pb', default='models/ssd_mobilenet_v3_large_coco.pb')
+    parser.add_argument('--pbtxt', default='models/ssd_mobilenet_v3_large_coco.pbtxt')
+    parser.add_argument('--learn-frames', type=int, default=300)
+    parser.add_argument('--detect-frames', type=int, default=1500)
+    parser.add_argument('--min-area', type=int, default=500)
+    parser.add_argument('--evaluate', action='store_true')
+    args = parser.parse_args()
+
+    detector_system = MotionGatedDetector(args)
+    detector_system.run()
