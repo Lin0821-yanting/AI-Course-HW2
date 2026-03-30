@@ -483,7 +483,9 @@ pdm run python visualize_metrics.py metrics_*.csv
 加以修改後分別進行cpu、cuda、tensorrt fp16的效能測試。由於過去寫程式極少使用到threading的方式，若是之後的capstone開發
 不只用到dual threading，那我不清楚哪個部分需要獨立一個thread那儘管有AI輔助也是白搭。
 還有mermory的紀錄用'psutil.virtual_memory().used / (1024 * 1024)'的方式發現三個memory都是約5800，改用/proc/meminfo
-的方式
+的方式。
+另外在motion_gated_detector的部分，p50、p95、p99在cuda模式下運行的延遲對比benchmark的結果差了一倍，我在想是我threading
+的處理不夠完善，後續可以找出問題點，看是在detect還是抓取frame又或者是畫bbox導致的。
 
 **觀察到的 tradeoff：**
 7W 功耗模式下 FPS 從 30.19 降至 ~18.69（-38%），但 FPS/Watt 從 1.21 提升至 2.67（+121%）。
