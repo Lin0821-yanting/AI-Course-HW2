@@ -558,7 +558,7 @@ pdm run python visualize_metrics.py metrics_*.csv
 
 
 ### 蔡昇翰 (henry tsai)
- 實作內容
+## 實作內容
 - **download_coco_subset.py**  
   - 開發具備智慧快取功能的下載類別  
   - 從 COCO val2017 隨機篩選並下載 50 張圖片及其標註檔  
@@ -573,7 +573,7 @@ pdm run python visualize_metrics.py metrics_*.csv
 
 ---
 
-## 2. 設計決策與原因 (Design decisions & why)
+##  設計決策與原因 (Design decisions & why)
 - **推論結果快取化**  
   - 在 metrics.py 中選擇在最低門檻 (0.3) 執行一次推論並快取結果  
   - 避免針對每個門檻重複執行模型  
@@ -582,7 +582,7 @@ pdm run python visualize_metrics.py metrics_*.csv
 
 ---
 
-## 3. 驚喜或錯誤 (What surprised you or went wrong)
+##  驚喜或錯誤 (What surprised you or went wrong)
 - **需求描述能力的挑戰**  
   - 使用 AI 輔助撰寫程式時，困難在於「精確描述需求」  
   - 作業說明雖清楚列出目標，但因缺乏架構描述能力，AI 生成邏輯常與預期落差  
@@ -595,7 +595,7 @@ pdm run python visualize_metrics.py metrics_*.csv
 
 ---
 
-## 4. 觀察到的權衡 (Tradeoff or result you observed)
+##  觀察到的權衡 (Tradeoff or result you observed)
 - **門檻與偵測品質的穩定性**  
   - 從 metrics_*.csv 觀測到 Precision (0.5) 與 Recall (0.4) 在 0.3 至 0.9 門檻間維持不變  
   - 反映出在小樣本 (50 張) 中，模型對目標的信心度分布極其兩極  
