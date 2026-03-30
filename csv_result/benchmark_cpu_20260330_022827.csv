@@ -1,0 +1,2 @@
+Timestamp,Backend,PowerMode,FPS,p50_ms,p95_ms,p99_ms,gpu_memory_mb
+20260330_022827,cpu,25W,16.31,58.88,63.29,65.60,5458.05

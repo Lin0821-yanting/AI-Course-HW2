@@ -1,0 +1,2 @@
+Timestamp,Backend,PowerMode,FPS,p50_ms,p95_ms,p99_ms,gpu_memory_mb
+20260330_021631,tensorrt_fp16,25W,49.51,17.03,18.03,18.44,5568.91
