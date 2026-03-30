@@ -1,0 +1,2 @@
+Timestamp,Backend,MinArea,EvaluateMode,LearnFrames,DetectFrames,InferenceCalls,MotionTriggers,StaticFrames,SkipRate_%,p50_ms,p95_ms,p99_ms,MissedDetections,MissedPct_%,FalseTriggers,FalsePct_%
+20260330_174906,cuda,1500,True,300,1500,1500,727,773,0.0,38.00,39.77,40.57,103,6.9,297,19.8
