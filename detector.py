@@ -1,6 +1,6 @@
-# ==============================================================================
-# Description: Background Object Detection using SSD MobileNet V3 and OpenCV DNN.
-# ==============================================================================
+#!/usr/bin/env python3
+# Copyright (c) 2026 <Yanting Lin>
+# Tatung University — I4210 AI實務專題=============================================================================
 
 import cv2
 import numpy as np
