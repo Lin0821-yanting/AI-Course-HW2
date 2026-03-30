@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
-# Copyright (c) 2026 Yanting Lin
-# Tatung University — I4210 AI實務專題
+<!--
+!/usr/bin/env python3
+ Copyright (c) 2026 Yanting Lin
+ Tatung University — I4210 AI實務專題
 
-# Homework 2: Detection Benchmarking & Performance Analysis
-
+ Homework 2: Detection Benchmarking & Performance Analysis
+-->
 ## Executive Summary
 
 本專案在 Jetson Orin Nano 上對 SSD-MobileNet V3 進行完整效能評測，涵蓋三種推論後端
