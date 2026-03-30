@@ -9,6 +9,7 @@ import csv
 import argparse
 import psutil
 import numpy as np
+import subprocess
 from datetime import datetime
 
 # 導入自定義類別
@@ -57,9 +58,45 @@ class BenchmarkRunner:
         return "N/A"
 
     def _get_system_memory_mb(self) -> float:
-        """取得系統記憶體使用量 (Jetson UMA 架構)。"""
-        # 參考作業提示： nvidia-smi 在 Jetson 回傳 N/A，改採 /proc/meminfo 或 psutil
-        return psutil.virtual_memory().used / (1024 * 1024) 
+        """
+        查詢記憶體使用量。
+        先嘗試 nvidia-smi（離散 GPU），若回傳 [N/A] 則
+        fallback 至 /proc/meminfo（Jetson UMA 共享記憶體）。
+        
+        Note: Jetson Orin Nano 使用 CPU/GPU 共享記憶體架構，
+        nvidia-smi 回傳 [N/A]，因此三種 backend 的數值會相近（~5600 MB），
+        反映整體系統 RAM 使用量，非 GPU 專屬 VRAM。
+        """
+        # 1. 先嘗試 nvidia-smi（適用離散 GPU）
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.used",
+                "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            val = result.stdout.strip()
+            if val and "[N/A]" not in val:
+                return float(val)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            pass
+
+        # 2. Fallback：Jetson 共享記憶體，讀 /proc/meminfo
+        try:
+            with open("/proc/meminfo") as f:
+                info = {}
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        info[parts[0].rstrip(":")] = int(parts[1])
+            total_kb = info.get("MemTotal", 0)
+            avail_kb = info.get("MemAvailable", 0)
+            return round((total_kb - avail_kb) / 1024.0, 1)
+        except (FileNotFoundError, ValueError):
+            # 最後 fallback：用 psutil
+            import psutil
+            return round(psutil.virtual_memory().used / (1024 * 1024), 1) 
 
     def _save_results(
         self,
@@ -75,9 +112,9 @@ class BenchmarkRunner:
         avg_e2e = np.mean(e2e_latencies)
         fps = 1000.0 / avg_e2e if avg_e2e > 0 else 0.0
 
-        # terminal 新增 p95
         print(f"\n--- {self.backend} 結果分析 ---")
         print(f"FPS: {fps:.2f} | P50: {p50:.2f}ms | P95: {p95:.2f}ms | P99: {p99:.2f}ms")
+        print(f"Memory: {peak_mem:.1f} MB (系統共享記憶體，非 GPU 專屬 VRAM)")
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename  = f"benchmark_{self.backend}_{timestamp}.csv"
@@ -86,11 +123,13 @@ class BenchmarkRunner:
             writer = csv.writer(f)
             writer.writerow([
                 "Timestamp", "Backend", "PowerMode",
-                "FPS", "p50_ms", "p95_ms", "p99_ms", "gpu_memory_mb",
+                "FPS", "p50_ms", "p95_ms", "p99_ms",
+                "gpu_memory_mb",  # Jetson: 整體系統 RAM，非 GPU VRAM
             ])
             writer.writerow([
                 timestamp, self.backend, power_mode,
-                f"{fps:.2f}", f"{p50:.2f}", f"{p95:.2f}", f"{p99:.2f}", f"{peak_mem:.2f}",
+                f"{fps:.2f}", f"{p50:.2f}", f"{p95:.2f}", f"{p99:.2f}",
+                f"{peak_mem:.1f}",
             ])
 
         print(f"結果已存至: {filename}")

@@ -13,13 +13,11 @@ from typing import Callable
 class Detector:
     """Background thread object detection using SSD MobileNet V3."""
 
-    # 模型輸入與 NMS 參數
     SCALE_FACTOR:      float = 1 / 127.5
     INPUT_SIZE:        tuple = (320, 320)
     MEAN:              tuple = (127.5, 127.5, 127.5)
     NMS_IOU_THRESHOLD: float = 0.4
 
-    # 內建 COCO 80 類別（index 0 為 background）
     COCO_LABELS = [
         "background", "person", "bicycle", "car", "motorcycle", "airplane",
         "bus", "train", "truck", "boat", "traffic light", "fire hydrant",
@@ -42,13 +40,12 @@ class Detector:
         model_pb: str,
         model_pbtxt: str,
         confidence_threshold: float = 0.5,
-        backend: str = "cpu",  # ← 新增，選項: cpu, cuda, tensorrt_fp16
+        backend: str = "cpu", 
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.labels = self.COCO_LABELS
         self.net = cv2.dnn.readNetFromTensorflow(model_pb, model_pbtxt)
 
-        # 依 backend 設定推論裝置
         if backend == "cuda":
             self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
             self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
@@ -73,7 +70,6 @@ class Detector:
         frame_provider 由外部注入，Detector 不依賴任何 camera 實作。
         daemon=True 確保主程式結束時執行緒自動終止。
         """
-        # 冪等性：已在執行中則直接返回
         if self._thread is not None and self._thread.is_alive():
             return
 
@@ -95,7 +91,6 @@ class Detector:
             self._thread.join(timeout=2.0)
             self._thread = None
 
-        # 釋放模型資源
         self.net = None
 
     def get_result(self) -> tuple[np.ndarray | None, list[dict], float]:
@@ -175,7 +170,6 @@ class Detector:
 
             frame = frame_provider()
             if frame is None:
-                # camera 未就緒時短暫休眠，避免 busy-wait 吃滿 CPU
                 time.sleep(0.005)
                 continue
 
@@ -183,22 +177,17 @@ class Detector:
 
             h, w = frame.shape[:2]
 
-            # --- 前處理 ---
             blob = self.preprocess(frame)
 
             self.set_input(blob)
 
-            # --- 推論（net.forward 期間釋放 GIL）---
             raw_dets = self.forward(blob)
 
-            # --- 後處理（解析 + NMS）---
             detections = self.postprocess(raw_dets, w, h)
 
-            # --- 滑動平均 FPS ---
             duration = time.perf_counter() - t_start
             self._fps_history.append(duration)
             avg_duration = sum(self._fps_history) / len(self._fps_history)
             current_fps  = 1.0 / avg_duration if avg_duration > 0 else 0.0
 
-            # --- 寫回結果（tuple 整包替換，CPython GIL 保證 atomic）---
             self._result = (frame, detections, current_fps)

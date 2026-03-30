@@ -1,0 +1,2 @@
+Timestamp,Backend,PowerMode,FPS,p50_ms,p95_ms,p99_ms,gpu_memory_mb
+20260330_145232,cuda,7W,18.69,40.39,80.22,120.08,4027.0

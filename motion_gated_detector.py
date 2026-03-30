@@ -62,7 +62,6 @@ class MotionGatedDetector:
             h, w        = frame.shape[:2]
             is_learning = i < self.args.learn_frames
 
-            # MOG2 更新
             mask = self.bg_sub.apply(frame)
 
             if is_learning:
@@ -73,7 +72,6 @@ class MotionGatedDetector:
                 self._stream_frame(frame)
                 continue
 
-            # Detection Phase
             cleaned_mask = self._cleanup_mask(mask)
             contours, _  = cv2.findContours(
                 cleaned_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -94,9 +92,8 @@ class MotionGatedDetector:
                 results = self.detector.postprocess(raw_dets, w, h)
                 self.inference_count += 1
             else:
-                results = []  # 無動態 → 不推論 → 不畫框
+                results = []
 
-            # Evaluation Mode Metrics
             if self.args.evaluate:
                 object_present = any(d["confidence"] > 0.5 for d in results)
                 if not motion_gate and object_present:
@@ -107,6 +104,7 @@ class MotionGatedDetector:
             self._visualize_and_stream(frame, results, contours, motion_gate)
 
         self._print_summary(total_frames)
+        self._save_csv(total_frames)
         self.camera.release()
 
     def _visualize_and_stream(
@@ -151,7 +149,7 @@ class MotionGatedDetector:
         self.server.push_frame(buf.tobytes())
 
     def _print_summary(self, total: int) -> None:
-        """輸出最終統計報告。"""
+        """輸出最終統計報告，evaluate 模式顯示數值，一般模式顯示 N/A。"""
         detect_frames = self.args.detect_frames
         skip_rate = (
             (1 - self.inference_count / detect_frames) * 100
@@ -161,6 +159,15 @@ class MotionGatedDetector:
         p95 = np.percentile(self.inference_latencies, 95) if self.inference_latencies else 0
         p99 = np.percentile(self.inference_latencies, 99) if self.inference_latencies else 0
 
+        if self.args.evaluate:
+            missed_str  = str(self.missed_detections)
+            false_str   = str(self.false_triggers)
+            missed_pct  = f"{self.missed_detections / detect_frames * 100:.1f}%"
+            false_pct   = f"{self.false_triggers / detect_frames * 100:.1f}%"
+        else:
+            missed_str = missed_pct = "N/A (需要 --evaluate 模式)"
+            false_str  = false_pct  = "N/A (需要 --evaluate 模式)"
+
         print("\n--- Motion-Gated Detection Summary ---")
         print(f"Learn frames:      {self.args.learn_frames}")
         print(f"Detect frames:     {detect_frames}")
@@ -168,10 +175,54 @@ class MotionGatedDetector:
         print(f"Inference calls:   {self.inference_count}")
         print(f"Skip rate:         {skip_rate:.1f}%")
         print(f"Latency (ms):      p50={p50:.2f}, p95={p95:.2f}, p99={p99:.2f}")
+        print(f"Missed detections: {missed_str} ({missed_pct})")
+        print(f"False triggers:    {false_str} ({false_pct})")
+
+    def _save_csv(self, total: int) -> None:
+        """將量測結果存至 CSV，evaluate 模式含 missed/false 數值，一般模式為 N/A。"""
+        from datetime import datetime
+        import csv
+
+        detect_frames = self.args.detect_frames
+        skip_rate = (
+            (1 - self.inference_count / detect_frames) * 100
+            if detect_frames > 0 else 0.0
+        )
+        p50 = np.percentile(self.inference_latencies, 50) if self.inference_latencies else 0
+        p95 = np.percentile(self.inference_latencies, 95) if self.inference_latencies else 0
+        p99 = np.percentile(self.inference_latencies, 99) if self.inference_latencies else 0
 
         if self.args.evaluate:
-            print(f"Missed detections: {self.missed_detections}")
-            print(f"False triggers:    {self.false_triggers}")
+            missed_val      = self.missed_detections
+            false_val       = self.false_triggers
+            missed_pct_val  = f"{self.missed_detections / detect_frames * 100:.1f}"
+            false_pct_val   = f"{self.false_triggers / detect_frames * 100:.1f}"
+        else:
+            missed_val = false_val = "N/A"
+            missed_pct_val = false_pct_val = "N/A"
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename  = f"motion_gated_{self.args.backend}_{timestamp}.csv"
+
+        with open(filename, mode="w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Timestamp", "Backend", "MinArea", "EvaluateMode",
+                "LearnFrames", "DetectFrames", "InferenceCalls",
+                "SkipRate_%", "p50_ms", "p95_ms", "p99_ms",
+                "MissedDetections", "MissedPct_%",
+                "FalseTriggers", "FalsePct_%",
+            ])
+            writer.writerow([
+                timestamp, self.args.backend, self.args.min_area,
+                self.args.evaluate,
+                self.args.learn_frames, detect_frames, self.inference_count,
+                f"{skip_rate:.1f}", f"{p50:.2f}", f"{p95:.2f}", f"{p99:.2f}",
+                missed_val, missed_pct_val,
+                false_val, false_pct_val,
+            ])
+
+        print(f"結果已存至: {filename}")
 
 
 if __name__ == "__main__":
