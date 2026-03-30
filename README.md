@@ -269,6 +269,14 @@ Comparing: 25W (benchmark_cuda_20260330_144020.csv)
 **佐證圖表：**
 - `chart_motion_gate_tradeoff.png` — 三種 min-area 下 skip rate / missed % / false % 折線圖
 
+**三條折線顯示了 min_area 從 500 → 1000 → 1500 的 tradeoff：**
+
+- Skip rate（藍）：隨 min_area 上升而緩慢增加（30% → 38%），代表過濾掉更多小動作區域，推論次數確實減少。
+Missed detections（紅）：在 min_area=500/1000 時幾乎為零，但到 1500 時急升至 36.9%，顯示過於嚴格的面積門檻開始漏掉真實事件。
+- False triggers（橘，右軸）：持續上升（54 → 78 → 97 筆），代表靜態幀觸發數量越來越多——這與 min_area 1500 時 StaticFrames 只剩 773 有關，motion gate 沒有發揮預期的過濾效果。
+
+- 結論：min_area=1000 是最平衡的設定——skip rate 已達 37.6%、missed 僅 0.3%，而 false trigger 雖然偏高（78 筆），至少 missed 還在可控範圍內。min_area=1500 的漏檢率暴增是明顯的 breaking point。
+
 ---
 
 ### 4. 準確度量測（COCO val2017, 50 張隨機子集）
@@ -312,7 +320,7 @@ Comparing: 25W (benchmark_cuda_20260330_144020.csv)
 |----------|----------|----------|------|
 | Backend 比較（25W） | `benchmark.py --backend {cpu,cuda,tensorrt_fp16}` | `chart_fps_by_configuration.png`、`chart_latency_distribution.png` | 三個 CSV 輸入 visualize_benchmark.py |
 | 功耗模式比較 | 切換 nvpmodel 後重跑 benchmark.py | 同上（含 7W 數據） | compare_power_modes.py 生成 markdown 表格 |
-| Motion-Gated Detection | `motion_gated_detector.py --min-area {300,500,1000} --evaluate` | `chart_motion_gate_tradeoff.png`（建議新增） | 三種 min-area 的 skip rate / missed / false 折線圖 |
+| Motion-Gated Detection | `motion_gated_detector.py --min-area {300,500,1000} --evaluate` | `chart_motion_gate_tradeoff.png` | 三種 min-area 的 skip rate / missed / false 折線圖 |
 | 準確度量測 | `metrics.py` | `chart_pr_curve.png`、`chart_per_class_map.png` | 自動下載 COCO 50 張子集 |
 
 > **最少需要 4 張圖**（作業要求），建議：
