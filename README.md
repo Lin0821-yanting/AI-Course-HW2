@@ -266,8 +266,8 @@ Comparing: 25W (benchmark_cuda_20260330_144020.csv)
 - **推薦設定 `--min-area 1000`**：跳過率 72.9%、Missed % 僅 0.3%，
   在省計算與準確率之間達到最佳平衡
 
-**佐證圖表：**
-- `chart_motion_gate_tradeoff.png` — 三種 min-area 下 skip rate / missed % / false % 折線圖
+
+![Motion Gate Trade-off Analysis](chart_motion_gate_tradeoff.png)
 
 **三條折線顯示了 min_area 從 500 → 1000 → 1500 的 tradeoff：**
 
